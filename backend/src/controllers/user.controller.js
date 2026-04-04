@@ -1,8 +1,30 @@
-import User from "../models/user.model.js";
+import { User, WorkerProfile } from "../models/index.js";
 
 const ALLOWED_PLATFORMS = ["Zomato", "Swiggy", "Zepto", "Blinkit", "Amazon"];
 const ALLOWED_TYPES = ["full-time", "part-time"];
 const ALLOWED_PLANS = ["basic", "pro"];
+
+// Fields that belong to the users table
+const USER_FIELDS = new Set(["name", "email"]);
+
+// Fields that belong to the worker_profiles table
+const WORKER_FIELDS = new Set([
+  "age",
+  "platform",
+  "workerId",
+  "type",
+  "city",
+  "zone",
+  "pincode",
+  "workingArea",
+  "workingHoursPerDay",
+  "avgDailyEarning",
+  "coveragePerDay",
+  "activePlan",
+  "isProtected",
+  "deviceFingerprint",
+  "lastLocation",
+]);
 
 function asOptionalString(value) {
   if (value === undefined || value === null) {
@@ -35,8 +57,12 @@ function asOptionalFloat(value) {
 }
 
 function normalizeProfilePayload(body) {
-  const payload = {
+  const raw = {
+    // User fields
     name: asOptionalString(body.name),
+    email: asOptionalString(body.email),
+
+    // Worker profile fields
     platform: asOptionalString(body.platform),
     city: asOptionalString(body.city),
     zone: asOptionalString(body.zone),
@@ -53,54 +79,73 @@ function normalizeProfilePayload(body) {
       body.isProtected === undefined || body.isProtected === null
         ? undefined
         : Boolean(body.isProtected),
+    deviceFingerprint:
+      body.deviceFingerprint === undefined ? undefined : body.deviceFingerprint,
+    lastLocation:
+      body.lastLocation === undefined ? undefined : body.lastLocation,
   };
 
-  if (payload.platform && !ALLOWED_PLATFORMS.includes(payload.platform)) {
+  if (raw.platform && !ALLOWED_PLATFORMS.includes(raw.platform)) {
     const error = new Error("Invalid platform.");
     error.statusCode = 400;
     throw error;
   }
 
-  if (payload.type && !ALLOWED_TYPES.includes(payload.type)) {
+  if (raw.type && !ALLOWED_TYPES.includes(raw.type)) {
     const error = new Error("Invalid worker type.");
     error.statusCode = 400;
     throw error;
   }
 
-  if (payload.activePlan && !ALLOWED_PLANS.includes(payload.activePlan)) {
+  if (raw.activePlan && !ALLOWED_PLANS.includes(raw.activePlan)) {
     const error = new Error("Invalid active plan.");
     error.statusCode = 400;
     throw error;
   }
 
-  for (const [key, value] of Object.entries(payload)) {
-    if (value === undefined) {
-      delete payload[key];
+  // Split into user vs worker payloads
+  const userPayload = {};
+  const workerPayload = {};
+
+  for (const [key, value] of Object.entries(raw)) {
+    if (value === undefined) continue;
+
+    if (USER_FIELDS.has(key)) {
+      userPayload[key] = value;
+    } else if (WORKER_FIELDS.has(key)) {
+      workerPayload[key] = value;
     }
   }
 
-  return payload;
+  return { userPayload, workerPayload };
 }
 
 function formatUser(user) {
+  const profile = user.workerProfile || {};
+
   return {
     id: user.id,
     phone: user.phone,
     firebaseUid: user.firebaseUid,
     name: user.name,
-    age: user.age,
-    platform: user.platform,
-    workerId: user.workerId,
-    type: user.type,
-    city: user.city,
-    pincode: user.pincode,
-    workingArea: user.workingArea,
-    workingHoursPerDay: user.workingHoursPerDay,
-    avgDailyEarning: user.avgDailyEarning,
-    zone: user.zone,
-    coveragePerDay: user.coveragePerDay,
-    activePlan: user.activePlan,
-    isProtected: user.isProtected,
+    email: user.email,
+    age: profile.age ?? null,
+    platform: profile.platform ?? null,
+    workerId: profile.workerId ?? null,
+    type: profile.type ?? null,
+    city: profile.city ?? null,
+    zone: profile.zone ?? null,
+    pincode: profile.pincode ?? null,
+    workingArea: profile.workingArea ?? null,
+    workingHoursPerDay: profile.workingHoursPerDay ?? null,
+    avgDailyEarning: profile.avgDailyEarning ?? 0,
+    riskScore: profile.riskScore ?? 0,
+    isProtected: profile.isProtected ?? false,
+    activePlan: profile.activePlan ?? "basic",
+    coveragePerDay: profile.coveragePerDay ?? 0,
+    deviceFingerprint: profile.deviceFingerprint ?? null,
+    lastLocation: profile.lastLocation ?? null,
+    lastActivityAt: profile.lastActivityAt ?? null,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -112,7 +157,10 @@ function getStatusCode(error) {
 
 export const getMyProfile = async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.userId);
+    const user = await User.findByPk(req.user.userId, {
+      include: [{ model: WorkerProfile, as: "workerProfile" }],
+    });
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -134,7 +182,10 @@ export const getMyProfile = async (req, res) => {
 
 export const updateMyProfile = async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.userId);
+    const user = await User.findByPk(req.user.userId, {
+      include: [{ model: WorkerProfile, as: "workerProfile" }],
+    });
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -142,21 +193,46 @@ export const updateMyProfile = async (req, res) => {
       });
     }
 
-    const payload = normalizeProfilePayload(req.body || {});
+    const { userPayload, workerPayload } = normalizeProfilePayload(
+      req.body || {},
+    );
 
-    if (!Object.keys(payload).length) {
+    const hasUserUpdates = Object.keys(userPayload).length > 0;
+    const hasWorkerUpdates = Object.keys(workerPayload).length > 0;
+
+    if (!hasUserUpdates && !hasWorkerUpdates) {
       return res.status(400).json({
         success: false,
         message: "No profile fields provided.",
       });
     }
 
-    await user.update(payload);
+    // Update user table fields
+    if (hasUserUpdates) {
+      await user.update(userPayload);
+    }
+
+    // Update or create worker_profiles row
+    if (hasWorkerUpdates) {
+      if (user.workerProfile) {
+        await user.workerProfile.update(workerPayload);
+      } else {
+        await WorkerProfile.create({
+          userId: user.id,
+          ...workerPayload,
+        });
+      }
+    }
+
+    // Reload with fresh data
+    const updatedUser = await User.findByPk(user.id, {
+      include: [{ model: WorkerProfile, as: "workerProfile" }],
+    });
 
     return res.status(200).json({
       success: true,
       message: "Profile updated successfully.",
-      data: formatUser(user),
+      data: formatUser(updatedUser),
     });
   } catch (error) {
     return res.status(getStatusCode(error)).json({

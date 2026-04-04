@@ -11,6 +11,9 @@ dotenv.config({ path: envPath, override: true });
 import app from "./app.js";
 import { sequelize } from "./db/index.js";
 
+// Import models to register associations before sync
+import "./models/index.js";
+
 const PORT = process.env.PORT || 5000;
 
 // Sync database and start server

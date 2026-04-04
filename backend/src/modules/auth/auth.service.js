@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import User from "../../models/user.model.js";
+import { User, WorkerProfile } from "../../models/index.js";
 import { verifyFirebaseIdToken } from "../../config/firebase.js";
 import { Op } from "sequelize";
 
@@ -60,6 +60,7 @@ export async function loginWithFirebaseToken(idToken) {
     where: {
       [Op.or]: [{ firebaseUid }, { phone: userIdentifier }],
     },
+    include: [{ model: WorkerProfile, as: "workerProfile" }],
   });
 
   if (!user) {
@@ -67,13 +68,25 @@ export async function loginWithFirebaseToken(idToken) {
       firebaseUid,
       phone: userIdentifier,
       name: decoded.name || null,
+      email: decoded.email || null,
       lastLoginAt: new Date(),
+    });
+
+    // Create an empty worker profile for the new user
+    await WorkerProfile.create({ userId: user.id });
+
+    // Reload with association
+    user = await User.findByPk(user.id, {
+      include: [{ model: WorkerProfile, as: "workerProfile" }],
     });
   } else {
     user.firebaseUid = firebaseUid;
     user.phone = userIdentifier;
     if (!user.name && decoded.name) {
       user.name = decoded.name;
+    }
+    if (!user.email && decoded.email) {
+      user.email = decoded.email;
     }
     user.lastLoginAt = new Date();
     await user.save();
@@ -89,14 +102,18 @@ export async function loginWithFirebaseToken(idToken) {
     { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
   );
 
+  const profile = user.workerProfile || {};
+
   return {
     accessToken,
     user: {
       id: user.id,
       phone: user.phone,
       name: user.name,
-      platform: user.platform,
-      city: user.city,
+      email: user.email,
+      platform: profile.platform || null,
+      city: profile.city || null,
+      zone: profile.zone || null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     },
@@ -104,22 +121,41 @@ export async function loginWithFirebaseToken(idToken) {
 }
 
 export async function getProfileByUserId(userId) {
-  const user = await User.findByPk(userId);
+  const user = await User.findByPk(userId, {
+    include: [{ model: WorkerProfile, as: "workerProfile" }],
+  });
+
   if (!user) {
     const error = new Error("User not found.");
     error.statusCode = 404;
     throw error;
   }
 
+  const profile = user.workerProfile || {};
+
   return {
     id: user.id,
     phone: user.phone,
     name: user.name,
-    platform: user.platform,
-    city: user.city,
-    zone: user.zone,
-    age: user.age,
-    type: user.type,
+    email: user.email,
+    firebaseUid: user.firebaseUid,
+    age: profile.age || null,
+    platform: profile.platform || null,
+    workerId: profile.workerId || null,
+    type: profile.type || null,
+    city: profile.city || null,
+    zone: profile.zone || null,
+    pincode: profile.pincode || null,
+    workingArea: profile.workingArea || null,
+    workingHoursPerDay: profile.workingHoursPerDay || null,
+    avgDailyEarning: profile.avgDailyEarning || 0,
+    riskScore: profile.riskScore || 0,
+    isProtected: profile.isProtected || false,
+    activePlan: profile.activePlan || "basic",
+    coveragePerDay: profile.coveragePerDay || 0,
+    deviceFingerprint: profile.deviceFingerprint || null,
+    lastLocation: profile.lastLocation || null,
+    lastActivityAt: profile.lastActivityAt || null,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
