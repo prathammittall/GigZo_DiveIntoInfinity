@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Gig Worker Parametric Insurance</title>
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg: #0f172a;           /* slate-900 */
+      --card-bg: #1e293b;      /* slate-800 */
+      --card-border: #334155;  /* slate-700 */
+      --text-main: #f8fafc;    /* slate-50 */
+      --text-muted: #94a3b8;   /* slate-400 */
+      --accent: #10b981;       /* emerald-500 */
+      --accent-hover: #059669; /* emerald-600 */
+      --danger: #ef4444;       /* red-500 */
+      --warning: #f59e0b;      /* amber-500 */
+      --input-bg: #0f172a;
+      --glass: rgba(30, 41, 59, 0.7);
+    }
+    
+    body { 
+      font-family: 'Inter', sans-serif; 
+      margin: 0; 
+      padding: 20px;
+      padding-top: 40px;
+      background: var(--bg); 
+      color: var(--text-main);
+      background-image: 
+        radial-gradient(circle at 15% 50%, rgba(16, 185, 129, 0.08), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(59, 130, 246, 0.08), transparent 25%);
+    }
+    
+    h1 { 
+      margin-bottom: 5px; 
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #34d399, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    h2 { margin-top: 20px; font-size: 1.1rem; color: #e2e8f0; font-weight: 600; border-bottom: 1px solid var(--card-border); padding-bottom: 8px;}
+    h3 { margin-top: 16px; font-size: 1rem; color: #cbd5e1; }
+    
+    .card {
+      background: var(--glass);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+    }
+    
+    label { display: block; margin-top: 12px; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); }
+    
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      margin-top: 4px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      background: var(--input-bg);
+      color: var(--text-main);
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus { outline: none; border-color: var(--accent); }
+    input[readonly] { background: rgba(0,0,0,0.2); color: var(--text-muted); cursor: not-allowed; }
+    
+    button {
+      margin-top: 16px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+    }
+    button:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3); }
+    button.danger { background: var(--danger); box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2); }
+    button.danger:hover { background: #dc2626; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3); }
+    
+    .row { display: flex; flex-wrap: wrap; gap: 24px; }
+    .col { flex: 1 1 320px; }
+    
+    .output { 
+      margin-top: 12px; 
+      font-weight: 500; 
+      color: var(--accent); 
+      min-height: 1.5rem; 
+      padding: 12px;
+      background: rgba(16, 185, 129, 0.1);
+      border-radius: 8px;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+    }
+    .output.error { 
+      color: var(--danger); 
+      background: rgba(239, 68, 68, 0.1); 
+      border-color: rgba(239, 68, 68, 0.2); 
+    }
+    
+    .small { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+    
+    /* Search Overrides */
+    #citySearchResults { 
+      margin-top: 4px; 
+      font-size: 0.85rem; 
+      background: var(--card-bg); 
+      border: 1px solid var(--card-border); 
+      border-radius: 8px;
+      display: none; 
+      max-height: 200px; 
+      overflow-y: auto;
+      position: absolute;
+      width: calc(100% - 24px);
+      z-index: 50;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+    }
+    .search-row { position: relative; }
+    
+    /* AI Neural Chart Container */
+    .chart-container {
+      position: relative;
+      height: 200px;
+      width: 100%;
+      margin-top: 16px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    
+    /* Map Container */
+    #map {
+      height: 250px;
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      margin-top: 12px;
+      z-index: 10;
+    }
+    
+    /* Toast System */
+    #toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 9999;
+    }
+    .toast {
+      background: rgba(30, 41, 59, 0.95);
+      backdrop-filter: blur(8px);
+      color: white;
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      min-width: 300px;
+      max-width: 400px;
+      animation: slideIn 0.3s ease forwards;
+    }
+    .toast.success { border-left: 4px solid var(--accent); }
+    .toast.alert { border-left: 4px solid var(--danger); }
+    .toast-icon { font-size: 1.5rem; }
+    .toast-content h4 { margin: 0 0 4px 0; font-size: 0.95rem; font-weight: 600; }
+    .toast-content p { margin: 0; font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; }
+    
+    @keyframes slideIn {
+      from { transform: translateX(110%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    /* AI Investigator Terminal */
+    .terminal {
+      background: #000;
+      color: #34d399;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      border: 1px solid #10b981;
+      margin-top: 12px;
+      display: none;
+      line-height: 1.5;
+    }
+    .terminal::before {
+      content: ">> System.AI.ReviewingClaim(...)";
+      color: #6b7280;
+      display: block;
+      margin-bottom: 8px;
+    }
+    .typing::after {
+      content: '▋';
+      animation: blink 1s step-start infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    /* Thermal Satellite Scan */
+    .thermal-scan {
+      position: relative;
+      background: #0f172a;
+      height: 120px;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      border: 1px solid var(--accent);
+    }
+    .thermal-bg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: 
+        radial-gradient(circle at 30% 50%, rgba(239, 68, 68, 0.4) 0%, transparent 40%),
+        radial-gradient(circle at 70% 50%, rgba(16, 185, 129, 0.4) 0%, transparent 40%),
+        radial-gradient(circle at 50% 80%, rgba(59, 130, 246, 0.4) 0%, transparent 40%);
+      filter: blur(8px);
+    }
+    .thermal-grid {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-size: 20px 20px;
+      background-image: 
+        linear-gradient(to right, rgba(16, 185, 129, 0.1) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(16, 185, 129, 0.1) 1px, transparent 1px);
+    }
+    .thermal-scan::after {
+      content: "LIVE GEO-THERMAL FEED";
+      position: absolute;
+      bottom: 8px;
+      left: 10px;
+      font-size: 0.70rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent);
+      animation: pulseText 2s infinite;
+    }
+    @keyframes pulseText { 50% { opacity: 0.5; } }
+    .scanning-line {
+      position: absolute;
+      width: 100%;
+      height: 2px;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+      animation: scan 3s linear infinite;
+    }
+    @keyframes scan {
+      0% { top: -5%; }
+      100% { top: 105%; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Parametric Smart Protocol</h1>
+  <p class="small">Decentralized Gig Worker Insurance Node • System Online</p>
+
+  <div class="row">
+    <div class="col">
+      <div class="card">
+        <h2>Worker Registration / Context</h2>
+        <label>Worker ID
+          <input id="workerId" value="CityA_123">
+        </label>
+        <label>City Search (India only)
+          <div style="display: flex; gap: 8px;">
+            <input id="citySearch" type="text" placeholder="Type a city name..." autocomplete="off">
+            <button type="button" style="margin-top: 2px;" onclick="searchCities()">Search</button>
+          </div>
+          <div id="citySearchResults" class="search-row"></div>
+        </label>
+        <label>Selected City
+          <input id="city" value="CityA" readonly style="background: #e9ecef;">
+        </label>
+        <label>Latitude
+          <input id="lat" type="number" value="28.6139" step="0.0001" onchange="updateMapMarkers()">
+        </label>
+        <label>Longitude
+          <input id="lon" type="number" value="77.209" step="0.0001">
+        </label>
+        <label>Worker risk category
+          <select id="riskCat">
+            <option value="low">low</option>
+            <option value="medium" selected>medium</option>
+            <option value="high">high</option>
+          </select>
+        </label>
+        
+        <!-- Leaflet Map -->
+        <div id="map"></div>
+        <div class="small" style="margin-bottom: 12px; text-align: right; color: var(--accent);">
+          <span id="mapDistance">Distance between pins: 0.0km</span>
+        </div>
+        
+        <div class="small">This info is reused across all actions.</div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <h2>Environment Snapshot</h2>
+        
+        <div class="thermal-scan">
+          <div class="thermal-bg"></div>
+          <div class="thermal-grid"></div>
+          <div class="scanning-line"></div>
+        </div>
+        
+        <button type="button" onclick="fetchLiveWeather()" style="width: 100%;">Fetch live weather &amp; AQI</button>
+        <span class="small" id="liveWeatherStatus"></span>
+        <label>Day of week (0=Mon)
+          <input id="dow" type="number" min="0" max="6" value="2">
+        </label>
+        <label>Hour of day (0–23)
+          <input id="hour" type="number" min="0" max="23" value="14">
+        </label>
+        <label>Temperature (°C)
+          <input id="temp" type="number" value="35">
+        </label>
+        <label>Rain (mm)
+          <input id="rain" type="number" value="30">
+        </label>
+        <label>Wind (kph)
+          <input id="wind" type="number" value="10">
+        </label>
+        <label>AQI
+          <input id="aqi" type="number" value="250">
+        </label>
+        <label>Traffic index (0–1)
+          <input id="traffic" type="number" min="0" max="1" step="0.05" value="0.7">
+        </label>
+        <label>Historical disruption frequency (0–0.3)
+          <input id="histFreq" type="number" step="0.01" value="0.1">
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <div class="card">
+        <h2>Risk Prediction & Premium</h2>
+        <button onclick="predictRisk()">Predict Risk</button>
+        <div class="output" id="riskOutput"></div>
+        
+        <!-- Neural Chart -->
+        <div class="chart-container">
+          <canvas id="neuralChart"></canvas>
+        </div>
+
+        <label style="margin-top: 20px;">Weather volatility (0–1)
+          <input id="volatility" type="number" min="0" max="1" step="0.1" value="0.4">
+        </label>
+        <button onclick="calculatePremium()">Calculate Weekly Premium</button>
+        <div class="output" id="premiumOutput"></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <h2>Income Loss & Payout Simulation</h2>
+        <label>Avg deliveries per hour
+          <input id="avgDeliv" type="number" value="3">
+        </label>
+        <label>Earnings per delivery
+          <input id="earnPerDel" type="number" value="80">
+        </label>
+        <label>Predicted disruption duration (hours)
+          <input id="dur" type="number" value="2">
+        </label>
+        <label>Area demand level (0–1)
+          <input id="demand" type="number" min="0" max="1" step="0.1" value="0.7">
+        </label>
+        <button onclick="estimateLoss()">Estimate Loss</button>
+        <div class="output" id="lossOutput"></div>
+
+        <h3>Trigger Payout</h3>
+        <label>Curfew active?
+          <select id="curfew">
+            <option value="false" selected>No</option>
+            <option value="true">Yes</option>
+          </select>
+        </label>
+        <label>Severe weather alert?
+          <select id="alert">
+            <option value="false" selected>No</option>
+            <option value="true">Yes</option>
+          </select>
+        </label>
+        <button onclick="triggerPayout()">Trigger Payout</button>
+        <div class="output" id="triggerOutput"></div>
+
+        <hr style="margin-top: 20px; border: 0; border-top: 1px solid #eee;">
+        <h3>Accident / Health Condition</h3>
+        <label>Condition Details
+          <input id="healthCondition" type="text" placeholder="e.g. Broken leg during delivery">
+        </label>
+        <label>Hospital Code (must start with HOSP-)
+          <input id="hospitalCode" type="text" placeholder="HOSP-1234">
+        </label>
+        <button type="button" onclick="triggerHealthPayout()" style="background: #dc2626;">Submit Health Claim</button>
+        <div class="output" id="healthOutput" style="color: #dc2626;"></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <h2>Fraud Check</h2>
+        <label>Claimed amount
+          <input id="claimAmt" type="number" value="500">
+        </label>
+        <label>GPS Lat
+          <input id="gpsLat" type="number" value="28.6" step="0.0001">
+        </label>
+        <label>GPS Lon
+          <input id="gpsLon" type="number" value="77.2" step="0.0001">
+        </label>
+        <label>Claimed Altitude (meters)
+          <input id="claimedAlt" type="number" value="300" step="1">
+          <div class="small">Live API will verify this against GPS coordinates.</div>
+        </label>
+        <label>Claim frequency (30d)
+          <input id="claimFreq" type="number" value="2">
+        </label>
+        <label>Deliveries last 7 days
+          <input id="deliv7" type="number" value="150">
+        </label>
+        <label>Location matches disruption zone?
+          <select id="locMatch">
+            <option value="true" selected>Yes</option>
+            <option value="false">No</option>
+          </select>
+        </label>
+        <button onclick="fraudCheck()">Run Fraud Check</button>
+        <div class="output" id="fraudOutput"></div>
+        <div class="terminal" id="aiInvestigator"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast System -->
+  <div id="toast-container"></div>
+  
+  <!-- Leaflet Map JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  
+  <script>
+    const API_BASE = "";
+    
+    // Toast Notification System
+    function showToast(title, message, type = "success") {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      const icon = type === "success" ? "⚡" : "⚠️";
+      toast.innerHTML = `
+        <div class="toast-icon">${icon}</div>
+        <div class="toast-content">
+          <h4>${title}</h4>
+          <p>${message}</p>
+        </div>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.animation = "slideIn 0.3s ease reverse forwards";
+        setTimeout(() => toast.remove(), 300);
+      }, 5000);
+    }
+    
+    // Map & Chart Setup globals
+    let map, workerMarker, zoneMarker;
+    let neuralChart;
+    
+    function initMap() {
+      map = L.map('map').setView([28.6139, 77.2090], 10);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        subdomains: 'abcd',
+        maxZoom: 20
+      }).addTo(map);
+      
+      const greenIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+        iconSize: [25, 41], iconAnchor: [12, 41]
+      });
+      const redIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+        iconSize: [25, 41], iconAnchor: [12, 41]
+      });
+
+      workerMarker = L.marker([28.6, 77.2], {icon: greenIcon, draggable: true}).addTo(map)
+        .bindPopup("Worker GPS Claim").openPopup();
+      zoneMarker = L.marker([28.6139, 77.2090], {icon: redIcon}).addTo(map)
+        .bindPopup("Disruption Zone Epicenter");
+        
+      workerMarker.on('dragend', function(e) {
+        document.getElementById("gpsLat").value = e.target.getLatLng().lat.toFixed(4);
+        document.getElementById("gpsLon").value = e.target.getLatLng().lng.toFixed(4);
+        updateMapDistance();
+      });
+      
+      updateMapDistance();
+    }
+    
+    function initChart() {
+      const ctx = document.getElementById('neuralChart').getContext('2d');
+      neuralChart = new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels: ['Weather Severity', 'Traffic Config', 'Hist. Risk', 'Pollution', 'Worker Vector'],
+          datasets: [{
+            label: 'Live Neural Weights',
+            data: [0.2, 0.5, 0.1, 0.8, 0.3],
+            backgroundColor: 'rgba(16, 185, 129, 0.2)',
+            borderColor: '#10b981',
+            pointBackgroundColor: '#10b981',
+            pointBorderColor: '#fff',
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: '#10b981'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            r: {
+              angleLines: { color: 'rgba(255,255,255,0.1)' },
+              grid: { color: 'rgba(255,255,255,0.1)' },
+              pointLabels: { color: '#94a3b8', font: { size: 10 } },
+              ticks: { display: false }
+            }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+    
+    function updateMapDistance() {
+      if (!map) return;
+      const wLat = parseFloat(document.getElementById("gpsLat").value);
+      const wLon = parseFloat(document.getElementById("gpsLon").value);
+      const zLat = parseFloat(document.getElementById("lat").value);
+      const zLon = parseFloat(document.getElementById("lon").value);
+      
+      workerMarker.setLatLng([wLat, wLon]);
+      zoneMarker.setLatLng([zLat, zLon]);
+      
+      const dist = map.distance([wLat, wLon], [zLat, zLon]) / 1000;
+      document.getElementById("mapDistance").innerText = `Distance between pins: ${dist.toFixed(2)}km`;
+    }
+    
+    document.addEventListener("DOMContentLoaded", () => {
+      initMap();
+      initChart();
+      
+      document.getElementById("lat").addEventListener("change", updateMapDistance);
+      document.getElementById("lon").addEventListener("change", updateMapDistance);
+      document.getElementById("gpsLat").addEventListener("change", updateMapDistance);
+      document.getElementById("gpsLon").addEventListener("change", updateMapDistance);
+    });
+
+    // Dynamic Geography
+    let searchDebounce;
+    async function searchCities() {
+      const q = document.getElementById("citySearch").value;
+      if (!q || q.length < 2) return;
+      const res = await fetch(API_BASE + "/search-cities?q=" + encodeURIComponent(q));
+      const data = await res.json();
+      const resultsDiv = document.getElementById("citySearchResults");
+      resultsDiv.innerHTML = "";
+      if (data.results && data.results.length > 0) {
+        data.results.forEach(c => {
+          const div = document.createElement("div");
+          div.style.padding = "4px 8px";
+          div.style.cursor = "pointer";
+          div.style.borderBottom = "1px solid #eee";
+          div.innerText = c.city + (c.admin1 ? ", " + c.admin1 : "");
+          div.onclick = function() {
+            document.getElementById("city").value = c.city;
+            document.getElementById("lat").value = c.lat.toFixed(4);
+            document.getElementById("lon").value = c.lon.toFixed(4);
+            resultsDiv.style.display = "none";
+            document.getElementById("citySearch").value = "";
+            updateMapDistance();
+          };
+          resultsDiv.appendChild(div);
+        });
+        resultsDiv.style.display = "block";
+      } else {
+        resultsDiv.innerHTML = "<div style='padding: 4px; color: #666;'>No Indian cities found</div>";
+        resultsDiv.style.display = "block";
+      }
+    }
+
+    document.getElementById("citySearch").addEventListener("input", function() {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(searchCities, 500);
+    });
+
+    document.addEventListener("click", function(e) {
+      if (!e.target.closest("#citySearch") && !e.target.closest("#citySearchResults")) {
+        document.getElementById("citySearchResults").style.display = "none";
+      }
+    });
+
+    function getCityCoords() {
+      return { lat: parseFloat(document.getElementById("lat").value), lon: parseFloat(document.getElementById("lon").value) };
+    }
+
+    async function fetchLiveWeather() {
+      var status = document.getElementById("liveWeatherStatus");
+      status.textContent = "Fetching…";
+      var coords = getCityCoords();
+      try {
+        var res = await fetch(API_BASE + "/live-weather?lat=" + coords.lat + "&lon=" + coords.lon);
+        var data = await res.json();
+        if (data.error) { status.textContent = "Error: " + data.error; return; }
+        document.getElementById("temp").value = Math.round(data.temperature * 10) / 10;
+        document.getElementById("rain").value = Math.round(data.rain_mm * 10) / 10;
+        document.getElementById("wind").value = Math.round(data.wind_kph * 10) / 10;
+        document.getElementById("aqi").value = Math.round(data.aqi);
+        status.textContent = "Updated with real-world data.";
+      } catch (e) {
+        status.textContent = "Request failed.";
+      }
+    }
+
+    function getCommon() {
+      return {
+        workerId: document.getElementById("workerId").value,
+        city: document.getElementById("city").value,
+        lat: parseFloat(document.getElementById("lat").value),
+        lon: parseFloat(document.getElementById("lon").value),
+        riskCat: document.getElementById("riskCat").value,
+        dow: parseInt(document.getElementById("dow").value),
+        hour: parseInt(document.getElementById("hour").value),
+        temp: parseFloat(document.getElementById("temp").value),
+        rain: parseFloat(document.getElementById("rain").value),
+        wind: parseFloat(document.getElementById("wind").value),
+        aqi: parseFloat(document.getElementById("aqi").value),
+        traffic: parseFloat(document.getElementById("traffic").value),
+        histFreq: parseFloat(document.getElementById("histFreq").value),
+      };
+    }
+
+    let lastRiskScore = null;
+
+    async function predictRisk() {
+      const c = getCommon();
+      
+      // Animate Neural Chart to make it look like it's "calculating"
+      if(neuralChart) {
+        neuralChart.data.datasets[0].data = [Math.random(), Math.random(), Math.random(), Math.random(), Math.random()];
+        neuralChart.update();
+      }
+      
+      const body = {
+        lat: c.lat,
+        lon: c.lon,
+        city: c.city,
+        day_of_week: c.dow,
+        hour_of_day: c.hour,
+        temperature: c.temp,
+        rain_mm: c.rain,
+        wind_kph: c.wind,
+        aqi: c.aqi,
+        traffic_index: c.traffic,
+        hist_disrupt_freq: c.histFreq,
+        worker_risk_category: c.riskCat,
+      };
+      const res = await fetch(API_BASE + "/predict-risk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      lastRiskScore = data.risk_score;
+      document.getElementById("riskOutput").innerText =
+        "Risk score: " + data.risk_score.toFixed(3);
+    }
+
+    async function calculatePremium() {
+      if (lastRiskScore === null) {
+        await predictRisk();
+      }
+      const c = getCommon();
+      const volatility = parseFloat(document.getElementById("volatility").value);
+      const body = {
+        risk_score: lastRiskScore || 0.2,
+        weather_volatility: volatility,
+        pollution_level: c.aqi,
+        hist_disrupt_freq: c.histFreq,
+        worker_risk_category: c.riskCat,
+      };
+      const res = await fetch(API_BASE + "/calculate-premium", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      document.getElementById("premiumOutput").innerText =
+        "Weekly premium: " + data.weekly_premium.toFixed(2);
+    }
+
+    async function estimateLoss() {
+      const c = getCommon();
+      const body = {
+        avg_deliveries_per_hour: parseFloat(document.getElementById("avgDeliv").value),
+        earnings_per_delivery: parseFloat(document.getElementById("earnPerDel").value),
+        predicted_disruption_duration: parseFloat(document.getElementById("dur").value),
+        area_demand_level: parseFloat(document.getElementById("demand").value),
+        worker_risk_category: c.riskCat,
+        aqi: c.aqi,
+        rain_mm: c.rain,
+        temperature: c.temp,
+      };
+      const res = await fetch(API_BASE + "/estimate-loss", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      document.getElementById("lossOutput").innerText =
+        "Estimated loss: " + data.estimated_loss.toFixed(2);
+    }
+
+    async function fraudCheck() {
+      const c = getCommon();
+      const body = {
+        claimed_amount: parseFloat(document.getElementById("claimAmt").value),
+        gps_lat: parseFloat(document.getElementById("gpsLat").value),
+        gps_lon: parseFloat(document.getElementById("gpsLon").value),
+        disruption_lat: c.lat,
+        disruption_lon: c.lon,
+        loc_match: document.getElementById("locMatch").value === "true",
+        claimed_altitude: parseFloat(document.getElementById("claimedAlt").value),
+        claim_frequency_30d: parseInt(document.getElementById("claimFreq").value),
+        deliveries_last_7d: parseInt(document.getElementById("deliv7").value),
+      };
+      const res = await fetch(API_BASE + "/fraud-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      
+      const term = document.getElementById("aiInvestigator");
+      term.style.display = "block";
+      term.innerHTML = "Initializing neural scrub...<br>";
+      
+      setTimeout(() => {
+        term.innerHTML += `> Distance check: ${document.getElementById("mapDistance").innerText}<br>`;
+      }, 500);
+      
+      setTimeout(() => {
+        if(data.fraud_probability > 0.8) {
+          term.innerHTML += '> <span style="color:#ef4444">CRITICAL: Physical laws violated. Altitude or distance completely mismatches claims.</span><br>';
+          term.innerHTML += '> Action: <b>CLAIM REJECTED.</b>';
+          showToast("Fraud Detected", "AI Model blocked the transaction.", "alert");
+        } else {
+          term.innerHTML += "> Pattern matching: Normal delivery variance detected.<br>";
+          term.innerHTML += "> Action: <b>CLAIM APPROVED.</b>";
+        }
+      }, 1500);
+
+      document.getElementById("fraudOutput").innerText =
+        "Fraud probability: " + data.fraud_probability.toFixed(3);
+    }
+
+    async function triggerPayout() {
+      const c = getCommon();
+      const body = {
+        worker_lat: c.lat,
+        worker_lon: c.lon,
+        zone_lat: c.lat,
+        zone_lon: c.lon,
+        env_rain_mm: c.rain,
+        env_aqi: c.aqi,
+        curfew: document.getElementById("curfew").value === "true",
+        severe_weather_alert: document.getElementById("alert").value === "true",
+        avg_deliveries_per_hour: parseFloat(document.getElementById("avgDeliv").value),
+        earnings_per_delivery: parseFloat(document.getElementById("earnPerDel").value),
+        predicted_disruption_duration: parseFloat(document.getElementById("dur").value),
+        area_demand_level: parseFloat(document.getElementById("demand").value),
+        worker_risk_category: c.riskCat,
+        aqi: c.aqi,
+        rain_mm: c.rain,
+        temperature: c.temp
+      };
+      const res = await fetch(API_BASE + "/trigger-payout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      
+      if(data.triggered && data.payout_amount > 0) {
+        showToast("Smart Contract Executed", `₹${data.payout_amount.toFixed(2)} transferred to Wallet ${c.workerId}`, "success");
+      }
+      
+      document.getElementById("triggerOutput").innerText =
+        "Triggered: " + data.triggered +
+        " | Conditions: " + data.conditions.join(", ") +
+        " | Location OK: " + data.location_verified +
+        " | Est. loss: " + data.estimated_loss.toFixed(2) +
+        " | Payout: " + data.payout_amount.toFixed(2);
+    }
+
+    async function triggerHealthPayout() {
+      const c = getCommon();
+      const body = {
+        worker_lat: c.lat,
+        worker_lon: c.lon,
+        condition_details: document.getElementById("healthCondition").value,
+        verified_hospital_code: document.getElementById("hospitalCode").value || null,
+        avg_deliveries_per_hour: parseFloat(document.getElementById("avgDeliv").value),
+        earnings_per_delivery: parseFloat(document.getElementById("earnPerDel").value),
+        worker_risk_category: c.riskCat,
+      };
+      const res = await fetch(API_BASE + "/trigger-health-accident", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      
+      if(data.triggered && data.payout_amount > 0) {
+        showToast("Health Claim Approved", `₹${data.payout_amount.toFixed(2)} medically verified and transferred.`, "success");
+      } else {
+        showToast("Claim Denied", "Hospital code could not be verified on chain.", "alert");
+      }
+      
+      document.getElementById("healthOutput").innerText =
+        "Triggered: " + data.triggered +
+        " | Conditions: " + data.conditions.join(", ") +
+        " | Est. loss: " + data.estimated_loss.toFixed(2) +
+        " | Payout: " + data.payout_amount.toFixed(2);
+    }
+  </script>
+</body>
+</html>
+

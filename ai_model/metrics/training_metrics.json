@@ -1,0 +1,13 @@
+{
+  "risk_roc_auc": 0.6671354718750665,
+  "risk_precision": 0.0,
+  "risk_recall": 0.0,
+  "risk_f1": 0.0,
+  "risk_brier": 0.11582244611242648,
+  "loss_rmse": 84.97983781338894,
+  "loss_mae": 63.34574892254878,
+  "fraud_roc_auc": 0.9409850168287854,
+  "fraud_precision": 0.7466666666666667,
+  "fraud_recall": 0.7750865051903114,
+  "fraud_f1": 0.7606112054329371
+}
