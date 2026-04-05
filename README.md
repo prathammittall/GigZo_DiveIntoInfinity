@@ -1,4 +1,4 @@
-# GigZo
+# GigZo            
 
 ### AI-Powered Parametric Insurance for Gig Delivery Workers
 
