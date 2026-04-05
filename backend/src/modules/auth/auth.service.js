@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 import { User, WorkerProfile } from "../../models/index.js";
 import { verifyFirebaseIdToken } from "../../config/firebase.js";
 import { Op } from "sequelize";
-
+ 
 function normalizeIndianPhone(phoneNumber) {
   if (!phoneNumber || typeof phoneNumber !== "string") {
     return null;
